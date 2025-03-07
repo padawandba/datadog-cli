@@ -25,24 +25,6 @@ func validateConfig(cfg *config.Config) error {
 	return nil
 }
 
-// withConfigValidation wraps an action with config validation
-func withConfigValidation(cfg *config.Config, action func(*cli.Context) error) func(*cli.Context) error {
-	return func(c *cli.Context) error {
-		// Skip validation for help
-		if c.Bool("help") || c.Bool("h") {
-			return cli.ShowCommandHelp(c, c.Command.Name)
-		}
-		
-		// Validate config
-		if err := validateConfig(cfg); err != nil {
-			return err
-		}
-		
-		// Run the original action
-		return action(c)
-	}
-}
-
 func main() {
 	// Set up structured logging
 	handler := slog.NewTextHandler(os.Stderr, nil)
