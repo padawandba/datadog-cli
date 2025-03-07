@@ -1,166 +1,228 @@
-# Datadog CLI (`dd`)
+# Datadog CLI Commands
 
-A command-line interface tool for managing Datadog resources.
+This document provides detailed information about the available commands in the Datadog CLI tool.
 
-## Overview
+## Global Flags
 
-The Datadog CLI (`dd`) provides a convenient way to interact with the Datadog API from the command line. It allows you to manage various Datadog resources such as hosts, tags, and monitors without having to use the web interface.
-
-## Installation
-
-### Prerequisites
-
-- Go 1.18 or higher
-- Datadog API and Application keys
-
-### Building from Source
-
-Clone the repository and build the application:
+The following flags can be used with any command:
 
 ```bash
-git clone https://github.com/padawandba/datadog-cli.git
-cd datadog-cli
-go build -o dd ./cmd/dd
+--dd-api-key string      Datadog API key (can also use DD_API_KEY env var)
+--dd-app-key string      Datadog Application key (can also use DD_APP_KEY env var)
+--dd-site string         Datadog site to use (default "datadoghq.com")
+--debug                  Enable debug logging
+--env string             Environment tag for logs (default "dev")
+--output string          Output format: table, json, yaml (default "table")
+--help, -h               Show help for any command
 ```
 
-Move the binary to a location in your PATH to make it globally accessible:
+## Hosts Commands
+
+Commands for managing Datadog hosts.
+
+### List Hosts
 
 ```bash
-# Linux/macOS
-sudo mv dd /usr/local/bin/
-
-# Or add to your user bin directory
-mv dd ~/bin/
+./dd hosts list [flags]
 ```
 
-## Configuration
+**Flags:**
+```bash
+--filter string      Filter hosts by name (supports wildcards)
+--limit int          Maximum number of hosts to return (default 100)
+--status string      Filter by host status (up, down, all) (default "up")
+```
 
-The CLI requires Datadog API and Application keys to authenticate with the Datadog API. You can provide these in several ways:
+**Examples:**
+```bash
+# List all up hosts
+./dd hosts list
 
-### Environment Variables
+# List hosts with "web" in the name
+./dd hosts list --filter "*web*"
+
+# List all hosts (including down) in JSON format
+./dd hosts list --status all --output json
+```
+
+### Mute Host
 
 ```bash
-export DD_API_KEY="your_api_key"
-export DD_APP_KEY="your_application_key"
-export DD_SITE="datadoghq.com"  # Optional, defaults to datadoghq.com
+./dd hosts mute <hostname> [flags]
 ```
 
-### Command-Line Flags
+**Flags:**
+```bash
+--end int            End time for muting in seconds from now
+--message string     Message explaining the reason for muting
+```
+
+**Examples:**
+```bash
+# Mute a host indefinitely
+./dd hosts mute web-server-01 --message "Maintenance in progress"
+
+# Mute a host for 1 hour
+./dd hosts mute web-server-01 --end 3600 --message "Scheduled maintenance"
+```
+
+### Unmute Host
 
 ```bash
-dd --dd-api-key="your_api_key" --dd-app-key="your_application_key" [command]
+./dd hosts unmute <hostname>
 ```
 
-### Configuration File
-
-The CLI will look for a configuration file at `~/.config/datadog/config.yaml` with the following format:
-
-```yaml
-api_key: your_api_key
-app_key: your_application_key
-site: datadoghq.com  # Optional
-output: table  # Optional, can be table, json, or yaml
+**Examples:**
+```bash
+./dd hosts unmute web-server-01
 ```
 
-## Usage
+## Tags Commands
 
-### General Syntax
+Commands for managing Datadog tags.
+
+### List Tags
 
 ```bash
-dd [global options] command [command options] [arguments...]
+./dd tags list [flags]
 ```
 
-### Global Options
-
-- `--dd-api-key value`: Datadog API key
-- `--dd-app-key value`: Datadog application key
-- `--dd-site value`: Datadog site (e.g., datadoghq.com, datadoghq.eu) (default: "datadoghq.com")
-- `--output value, -o value`: Output format (table, json, yaml) (default: "table")
-- `--help, -h`: Show help
-
-### Commands
-
-#### Hosts
-
-Manage Datadog hosts:
-
+**Flags:**
 ```bash
-# List hosts
-dd hosts list [--filter value]
-
-# Mute a host
-dd hosts mute HOSTNAME [--end value] [--message value]
-
-# Unmute a host
-dd hosts unmute HOSTNAME
+--source string      Filter tags by source
 ```
 
-#### Tags
+**Examples:**
+```bash
+# List all tags
+./dd tags list
 
-Manage Datadog tags:
+# List tags from a specific source
+./dd tags list --source user
+```
+
+### Add Tags
 
 ```bash
-# List tags for a host
-dd tags list HOSTNAME [--source value]
+./dd tags add <hostname> <tags> [flags]
+```
 
+**Flags:**
+```bash
+--source string      Tag source (default "user")
+```
+
+**Examples:**
+```bash
 # Add tags to a host
-dd tags add HOSTNAME TAG [TAG...]
+./dd tags add web-server-01 env:prod,role:web
 
-# Remove tags from a host
-dd tags remove HOSTNAME [TAG...] [--all]
+# Add tags with a specific source
+./dd tags add web-server-01 team:platform --source chef
 ```
 
-#### Monitors
-
-Manage Datadog monitors:
+### Remove Tags
 
 ```bash
-# List monitors
-dd monitors list [--query value] [--tags value]
+./dd tags remove <hostname> <tags> [flags]
+```
 
-# Mute a monitor
-dd monitors mute MONITOR_ID [--scope value] [--duration value]
+**Flags:**
+```bash
+--source string      Tag source (default "user")
+```
 
+**Examples:**
+```bash
+# Remove specific tags from a host
+./dd tags remove web-server-01 env:prod,role:web
+
+# Remove all tags from a host
+./dd tags remove web-server-01 "*"
+```
+
+## Monitors Commands
+
+Commands for managing Datadog monitors.
+
+### List Monitors
+
+```bash
+./dd monitors list [flags]
+```
+
+**Flags:**
+```bash
+--filter string      Filter monitors by name (supports wildcards)
+--limit int          Maximum number of monitors to return (default 100)
+--status string      Filter by monitor status (alert, warn, no data, ok, all) (default "all")
+--tags string        Filter monitors by tags (comma-separated)
+```
+
+**Examples:**
+```bash
+# List all monitors
+./dd monitors list
+
+# List monitors with "api" in the name
+./dd monitors list --filter "*api*"
+
+# List monitors with specific tags
+./dd monitors list --tags "service:api,env:prod"
+```
+
+### Mute Monitor
+
+```bash
+./dd monitors mute <monitor_id> [flags]
+```
+
+**Flags:**
+```bash
+--end int            End time for muting in seconds from now
+--message string     Message explaining the reason for muting
+--scope string       Scope to mute (e.g., "host:web-server-01")
+```
+
+**Examples:**
+```bash
+# Mute a monitor indefinitely
+./dd monitors mute 12345 --message "Investigating issues"
+
+# Mute a monitor for 1 hour with a specific scope
+./dd monitors mute 12345 --end 3600 --scope "host:web-server-01" --message "Maintenance"
+```
+
+### Unmute Monitor
+
+```bash
+./dd monitors unmute <monitor_id> [flags]
+```
+
+**Flags:**
+```bash
+--scope string       Scope to unmute (e.g., "host:web-server-01")
+```
+
+**Examples:**
+```bash
 # Unmute a monitor
-dd monitors unmute MONITOR_ID [--scope value]
+./dd monitors unmute 12345
+
+# Unmute a monitor for a specific scope
+./dd monitors unmute 12345 --scope "host:web-server-01"
 ```
 
-## Examples
+## Logging
 
-### List all hosts
+The CLI automatically sends logs to your Datadog account. You can control the logging behavior with the following options:
 
 ```bash
-dd hosts list
+# Enable debug logging
+./dd --debug <command>
+
+# Set the environment tag for logs
+./dd --env production <command>
 ```
 
-### Add tags to a host
-
-```bash
-dd tags add web-server-01 env:production role:web
-```
-
-### List monitors with specific tags
-
-```bash
-dd monitors list --tags "service:api,env:production"
-```
-
-### Mute a monitor for 2 hours
-
-```bash
-dd monitors mute 12345678 --duration 2h
-```
-
-### Output results in JSON format
-
-```bash
-dd hosts list -o json > hosts.json
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the Apache 2.0 License - see the LICENSE file for details. 
+Logs are sent to Datadog with the service name `datadog-cli` and can be viewed in your Datadog logs explorer. 
