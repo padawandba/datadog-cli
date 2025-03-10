@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
@@ -20,9 +21,25 @@ func NewClient(cfg *config.Config) (*datadog.APIClient, context.Context) {
 	
 	// Configure authentication and settings
 	configuration := datadog.NewConfiguration()
+	
+	// Set the site with proper API prefix
+	if cfg.Site != "" {
+		// Ensure the site has the 'api.' prefix
+		site := cfg.Site
+		if !strings.HasPrefix(site, "api.") {
+			site = "api." + site
+		}
+		
+		slog.Debug("Setting Datadog API host", "site", site)
+		configuration.Host = site
+	} else {
+		// Default to the main Datadog API URL
+		configuration.Host = "api.datadoghq.com"
+	}
+	
+	// Add authentication headers
 	configuration.AddDefaultHeader("DD-API-KEY", cfg.APIKey)
 	configuration.AddDefaultHeader("DD-APPLICATION-KEY", cfg.AppKey)
-	configuration.Host = cfg.Site
 	
 	// Configure HTTP client with reasonable timeouts
 	httpClient := &http.Client{
@@ -37,7 +54,7 @@ func NewClient(cfg *config.Config) (*datadog.APIClient, context.Context) {
 	apiClient := datadog.NewAPIClient(configuration)
 	
 	slog.Debug("Initialized Datadog API client", 
-		"site", cfg.Site,
+		"host", configuration.Host,
 		"timeout", "30s")
 	
 	return apiClient, ctx

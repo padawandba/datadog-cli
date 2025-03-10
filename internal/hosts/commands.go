@@ -50,7 +50,7 @@ func listCommand(client *Client, cfg *config.Config) *cli.Command {
 				formatter = console.NewFormatter(c.String("output"))
 			}
 			
-			return formatter.Format(hosts)
+			return FormatHosts(formatter, hosts)
 		},
 	}
 }

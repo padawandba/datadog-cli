@@ -56,16 +56,8 @@ func listCommand(client *Client, cfg *config.Config) *cli.Command {
 				formatter = console.NewFormatter(c.String("output"))
 			}
 			
-			// Simple output for tags in table format
-			if formatter.OutFormat == console.TableFormat {
-				fmt.Printf("Tags for host %s:\n", hostname)
-				for _, tag := range tags {
-					fmt.Printf("  %s\n", tag)
-				}
-				return nil
-			}
-			
-			return formatter.Format(tags)
+			// Use our custom formatter for host tags
+			return FormatHostTags(formatter, hostname, tags)
 		},
 	}
 }

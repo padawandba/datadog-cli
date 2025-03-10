@@ -58,7 +58,8 @@ func listCommand(client *Client, cfg *config.Config) *cli.Command {
 				formatter = console.NewFormatter(c.String("output"))
 			}
 			
-			return formatter.Format(monitors)
+			// Use our custom formatter for monitors
+			return FormatMonitors(formatter, monitors)
 		},
 	}
 }

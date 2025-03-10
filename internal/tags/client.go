@@ -26,13 +26,19 @@ func NewClient(apiClient *datadog.APIClient, ctx context.Context) *Client {
 func (c *Client) GetHostTags(hostname string, source string) ([]string, error) {
 	tagsAPI := datadogV1.NewTagsApi(c.apiClient)
 	
-	opts := datadogV1.GetHostTagsOptionalParameters{}
+	// Create optional parameters with proper initialization
+	opts := datadogV1.NewGetHostTagsOptionalParameters()
 	if source != "" {
-		opts.WithSource(source)
+		opts = opts.WithSource(source)
 	}
 	
-	resp, _, err := tagsAPI.GetHostTags(c.ctx, hostname, opts)
+	// Use proper error handling with context
+	resp, httpResp, err := tagsAPI.GetHostTags(c.ctx, hostname, *opts)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return nil, fmt.Errorf("error getting host tags (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return nil, fmt.Errorf("error getting host tags: %v", err)
 	}
 	
@@ -43,17 +49,23 @@ func (c *Client) GetHostTags(hostname string, source string) ([]string, error) {
 func (c *Client) AddHostTags(hostname string, tags []string, source string) error {
 	tagsAPI := datadogV1.NewTagsApi(c.apiClient)
 	
-	body := datadogV1.HostTags{
-		Tags: tags,
-	}
+	// Create the request body with proper initialization
+	body := *datadogV1.NewHostTags()
+	body.SetTags(tags)
 	
-	opts := datadogV1.CreateHostTagsOptionalParameters{}
+	// Create optional parameters with proper initialization
+	opts := datadogV1.NewCreateHostTagsOptionalParameters()
 	if source != "" {
-		opts.WithSource(source)
+		opts = opts.WithSource(source)
 	}
 	
-	_, _, err := tagsAPI.CreateHostTags(c.ctx, hostname, body, opts)
+	// Use proper error handling with context
+	_, httpResp, err := tagsAPI.CreateHostTags(c.ctx, hostname, body, *opts)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return fmt.Errorf("error adding host tags (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return fmt.Errorf("error adding host tags: %v", err)
 	}
 	
@@ -64,57 +76,66 @@ func (c *Client) AddHostTags(hostname string, tags []string, source string) erro
 func (c *Client) RemoveHostTags(hostname string, tags []string, source string) error {
 	tagsAPI := datadogV1.NewTagsApi(c.apiClient)
 	
-	if len(tags) == 0 {
+	// Create optional parameters with proper initialization
+	opts := datadogV1.NewDeleteHostTagsOptionalParameters()
+	if source != "" {
+		opts = opts.WithSource(source)
+	}
+	
+	if len(tags) == 0 || (len(tags) == 1 && tags[0] == "*") {
 		// Delete all tags
-		opts := datadogV1.DeleteHostTagsOptionalParameters{}
-		if source != "" {
-			opts.WithSource(source)
-		}
-		
-		_, err := tagsAPI.DeleteHostTags(c.ctx, hostname, opts)
+		httpResp, err := tagsAPI.DeleteHostTags(c.ctx, hostname, *opts)
 		if err != nil {
+			// Include HTTP response details in error if available
+			if httpResp != nil {
+				return fmt.Errorf("error removing all host tags (status: %d): %v", httpResp.StatusCode, err)
+			}
 			return fmt.Errorf("error removing all host tags: %v", err)
 		}
-	} else {
-		// Delete specific tags
-		opts := datadogV1.DeleteHostTagsOptionalParameters{}
-		if source != "" {
-			opts.WithSource(source)
-		}
-		
-		_, err := tagsAPI.DeleteHostTags(c.ctx, hostname, opts)
+		return nil
+	}
+	
+	// For specific tags, we need to get current tags, filter them, and update
+	currentTags, err := c.GetHostTags(hostname, source)
+	if err != nil {
+		return fmt.Errorf("error getting current host tags: %v", err)
+	}
+	
+	// Filter out the tags to be removed
+	newTags := filterTags(currentTags, tags)
+	
+	// If no tags left, delete all tags
+	if len(newTags) == 0 {
+		httpResp, err := tagsAPI.DeleteHostTags(c.ctx, hostname, *opts)
 		if err != nil {
-			return fmt.Errorf("error removing host tags: %v", err)
-		}
-		
-		// Get remaining tags
-		remainingTags, err := c.GetHostTags(hostname, source)
-		if err != nil {
-			return fmt.Errorf("error getting remaining host tags: %v", err)
-		}
-		
-		// Filter out the deleted tags
-		newTags := []string{}
-		for _, tag := range remainingTags {
-			shouldKeep := true
-			for _, deleteTag := range tags {
-				if tag == deleteTag {
-					shouldKeep = false
-					break
-				}
+			// Include HTTP response details in error if available
+			if httpResp != nil {
+				return fmt.Errorf("error removing all host tags (status: %d): %v", httpResp.StatusCode, err)
 			}
-			if shouldKeep {
-				newTags = append(newTags, tag)
-			}
+			return fmt.Errorf("error removing all host tags: %v", err)
 		}
-		
-		// Add back the filtered tags
-		if len(newTags) > 0 {
-			if err := c.AddHostTags(hostname, newTags, source); err != nil {
-				return fmt.Errorf("error updating host tags: %v", err)
-			}
+		return nil
+	}
+	
+	// Update with the filtered tags
+	return c.AddHostTags(hostname, newTags, source)
+}
+
+// filterTags removes the specified tags from the list of current tags
+func filterTags(currentTags []string, tagsToRemove []string) []string {
+	// Create a map for quick lookup of tags to remove
+	removeMap := make(map[string]bool)
+	for _, tag := range tagsToRemove {
+		removeMap[tag] = true
+	}
+	
+	// Filter out the tags to be removed
+	var filteredTags []string
+	for _, tag := range currentTags {
+		if !removeMap[tag] {
+			filteredTags = append(filteredTags, tag)
 		}
 	}
 	
-	return nil
+	return filteredTags
 }

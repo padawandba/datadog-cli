@@ -39,16 +39,22 @@ type Monitor struct {
 func (c *Client) List(query string, tags []string) ([]Monitor, error) {
 	monitorsAPI := datadogV1.NewMonitorsApi(c.apiClient)
 	
+	// Create optional parameters with proper initialization
 	opts := datadogV1.NewListMonitorsOptionalParameters()
 	if query != "" {
-		opts.WithName(query)
+		opts = opts.WithName(query)
 	}
 	if len(tags) > 0 {
-		opts.WithTags(strings.Join(tags, ","))
+		opts = opts.WithTags(strings.Join(tags, ","))
 	}
 	
-	resp, _, err := monitorsAPI.ListMonitors(c.ctx, *opts)
+	// Use proper error handling with context
+	resp, httpResp, err := monitorsAPI.ListMonitors(c.ctx, *opts)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return nil, fmt.Errorf("error listing monitors (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return nil, fmt.Errorf("error listing monitors: %v", err)
 	}
 	
@@ -75,13 +81,17 @@ func (c *Client) Mute(monitorID int64, scope string, endTime int64) error {
 	monitorsAPI := datadogV1.NewMonitorsApi(c.apiClient)
 	
 	// Get the current monitor
-	monitor, _, err := monitorsAPI.GetMonitor(c.ctx, monitorID)
+	monitor, httpResp, err := monitorsAPI.GetMonitor(c.ctx, monitorID)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return fmt.Errorf("error getting monitor (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return fmt.Errorf("error getting monitor: %v", err)
 	}
 	
-	// Create an update request
-	updateReq := datadogV1.NewMonitorUpdateRequest()
+	// Create an update request with proper initialization
+	updateReq := *datadogV1.NewMonitorUpdateRequest()
 	
 	// Set up silencing
 	silenced := make(map[string]int64)
@@ -100,8 +110,12 @@ func (c *Client) Mute(monitorID int64, scope string, endTime int64) error {
 	updateReq.SetOptions(options)
 	
 	// Update the monitor
-	_, _, err = monitorsAPI.UpdateMonitor(c.ctx, monitorID, *updateReq)
+	_, httpResp, err = monitorsAPI.UpdateMonitor(c.ctx, monitorID, updateReq)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return fmt.Errorf("error muting monitor (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return fmt.Errorf("error muting monitor: %v", err)
 	}
 	
@@ -113,13 +127,17 @@ func (c *Client) Unmute(monitorID int64, scope string) error {
 	monitorsAPI := datadogV1.NewMonitorsApi(c.apiClient)
 	
 	// Get the current monitor
-	monitor, _, err := monitorsAPI.GetMonitor(c.ctx, monitorID)
+	monitor, httpResp, err := monitorsAPI.GetMonitor(c.ctx, monitorID)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return fmt.Errorf("error getting monitor (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return fmt.Errorf("error getting monitor: %v", err)
 	}
 	
-	// Create an update request
-	updateReq := datadogV1.NewMonitorUpdateRequest()
+	// Create an update request with proper initialization
+	updateReq := *datadogV1.NewMonitorUpdateRequest()
 	
 	// Get current options and silenced settings
 	options := monitor.GetOptions()
@@ -138,8 +156,12 @@ func (c *Client) Unmute(monitorID int64, scope string) error {
 	updateReq.SetOptions(options)
 	
 	// Update the monitor
-	_, _, err = monitorsAPI.UpdateMonitor(c.ctx, monitorID, *updateReq)
+	_, httpResp, err = monitorsAPI.UpdateMonitor(c.ctx, monitorID, updateReq)
 	if err != nil {
+		// Include HTTP response details in error if available
+		if httpResp != nil {
+			return fmt.Errorf("error unmuting monitor (status: %d): %v", httpResp.StatusCode, err)
+		}
 		return fmt.Errorf("error unmuting monitor: %v", err)
 	}
 	

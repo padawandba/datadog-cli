@@ -26,8 +26,9 @@ type Config struct {
 
 // Load loads configuration from config file and environment variables
 func Load() (*Config, error) {
+	// Initialize with default values
 	config := &Config{
-		Site:   "datadoghq.com",
+		Site:   "datadoghq.com", // The 'api.' prefix will be added by the client
 		Output: "table",
 	}
 
